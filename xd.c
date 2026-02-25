@@ -6,7 +6,16 @@
 #define MAX_BYTE_COUNT 16
 
 void printLine(u_int32_t offset, char* hex_line) {
-    printf("%08x: %s\n", offset, hex_line);
+    printf("%08x: ", offset);
+    int i = 0;
+
+    while (hex_line[i] != '\0') {
+        printf("%c%c", hex_line[i], hex_line[i + 1]);
+        i += 2;
+        if (i % 4 == 0) printf(" ");
+    }
+
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -23,23 +32,28 @@ int main(int argc, char *argv[]) {
 
     unsigned short buff; // buffer for two bytes
     short hex_count = 0; // where we are in our hex line
-    char hex_line[MAX_BYTE_COUNT * 2 + 1]; // our current hex line
+    char hex_line[MAX_BYTE_COUNT * 2 + 1] = {0}; // our current hex line
     int n_bytes_read; // number of bytes we read
     u_int32_t offset = 0x0;
 
     while ((n_bytes_read = fread(&buff, sizeof(char), 2, fp)) > 0) {
         
-        // add two bytes that are in the buffer into our hex line buffer
-        snprintf(hex_line + hex_count, 
+        // add number of bytes that are in the buffer into our hex line buffer
+        if (n_bytes_read == 1) {
+            snprintf(hex_line + hex_count,
+                sizeof(hex_line) - hex_count,
+                "%.2x", 
+                buff & 0xff);
+        } else {
+            snprintf(hex_line + hex_count, 
                 sizeof(hex_line) - hex_count, 
                 "%.2x%.2x", 
                 buff & 0xff, 
                 (buff >> 8) & 0xff); 
-
+        }
         // increment where we are in the buffer
         hex_count += n_bytes_read * 2; // 2 hex char per byte
 
-        
         if (hex_count == MAX_BYTE_COUNT * 2) {
             printLine(offset, hex_line);
             hex_count = 0;
