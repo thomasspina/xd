@@ -2,17 +2,24 @@
 #include <string.h>
 #include <limits.h>
 
-#define LINE_LENGTH 67
 #define MAX_BYTE_COUNT 16
 
-void printLine(u_int32_t offset, char* hex_line) {
+void printLine(u_int32_t offset, u_int8_t* bytes) {
     printf("%08x: ", offset);
-    int i = 0;
+    short i = 0;
 
-    while (hex_line[i] != '\0') {
-        printf("%c%c", hex_line[i], hex_line[i + 1]);
-        i += 2;
-        if (i % 4 == 0) printf(" ");
+    while (bytes[i] != '\0') {
+        printf("%02x", bytes[i++]);
+        if (i % 2 == 0) printf(" ");
+    }
+    printf(" ");
+
+    i = 0;
+    while (bytes[i] != '\0') {
+        if (bytes[i] == '\n' || bytes[i] == '\t') printf(".");
+        else printf("%c", bytes[i]);
+
+        i++;
     }
 
     printf("\n");
@@ -30,41 +37,25 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    unsigned short buff; // buffer for two bytes
-    short hex_count = 0; // where we are in our hex line
-    char hex_line[MAX_BYTE_COUNT * 2 + 1] = {0}; // our current hex line
-    int n_bytes_read; // number of bytes we read
+    u_int8_t buff; // buffer for a byte
+    short i = 0; // where we are in our hex line
+    u_int8_t bytes[MAX_BYTE_COUNT + 1] = {0}; // our current hex line
     u_int32_t offset = 0x0;
 
-    while ((n_bytes_read = fread(&buff, sizeof(char), 2, fp)) > 0) {
-        
-        // add number of bytes that are in the buffer into our hex line buffer
-        if (n_bytes_read == 1) {
-            snprintf(hex_line + hex_count,
-                sizeof(hex_line) - hex_count,
-                "%.2x", 
-                buff & 0xff);
-        } else {
-            snprintf(hex_line + hex_count, 
-                sizeof(hex_line) - hex_count, 
-                "%.2x%.2x", 
-                buff & 0xff, 
-                (buff >> 8) & 0xff); 
-        }
-        // increment where we are in the buffer
-        hex_count += n_bytes_read * 2; // 2 hex char per byte
+    while (fread(&buff, sizeof(u_int8_t), 1, fp) > 0) {
+        bytes[i++] = buff;
 
-        if (hex_count == MAX_BYTE_COUNT * 2) {
-            printLine(offset, hex_line);
-            hex_count = 0;
-            memset(&hex_line[0], 0, sizeof(hex_line));
+        if (i == MAX_BYTE_COUNT) {
+            printLine(offset, bytes);
+            i = 0;
+            memset(&bytes[0], 0, sizeof(bytes));
 
             if (offset == UINT_MAX - 0xF) offset = 0x0;
             else offset += 0x10;
         }
     }
 
-    printLine(offset, hex_line);
+    printLine(offset, bytes);
     
     
 
