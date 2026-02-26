@@ -56,8 +56,6 @@ int main(int argc, char *argv[]) {
     }
 
     printLine(offset, bytes);
-    
-    
 
     fclose(fp);
     return 0;

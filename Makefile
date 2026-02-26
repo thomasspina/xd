@@ -1,9 +1,9 @@
 CC = gcc
 CFLAGS = -Wall -std=c11
-PROJ = xd
+PROJ = cxd
 
-main: xd.c
-	$(CC) $(CFLAGS) -o bin/$(PROJ) xd.c
+main: cxd.c
+	$(CC) $(CFLAGS) -o bin/$(PROJ) cxd.c
 
 clean:
 	rm -rf bin
