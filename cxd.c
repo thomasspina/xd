@@ -13,9 +13,9 @@
 #define HEX_LINE_LEN 67
 #define BIN_LINE_LEN 71
 
-long    byte_limit              = -1;         // -l --len option flag
-bool    is_bin                  = false;      // -b --bin option flag 
-char    bytes_per_group         = -1;         // -g       option flag (-1 means default)
+long    byte_limit              = -1;         // -l --len option    flag
+bool    is_bin                  = false;      // -b --bin option    flag // TODO: -r, -p, -i doesn't work with this
+char    bytes_per_group         = -1;         // -g --groupesize    option flag (-1 means default)
 
 void printByteGroup(char* bytes, short* i) {
     int byte_limit = DEFAULT_HEX_BYTES_PER_GROUP;
@@ -48,7 +48,6 @@ void outputLine(unsigned int offset, char* bytes) {
         i++;
         printf("%*s", HEX_LINE_LEN - 24 - (i << 1) - (i >> 1), ""); // add whitespace
     }
-    
 
     i = 0;
     while (bytes[i] != '\0') {
@@ -74,22 +73,13 @@ void hexDump(FILE *fp) {
 
         if (byte_limit > 0 && total_byte_count == byte_limit) break; // -l flag limit break
         
-        if (!is_bin && i == MAX_HEX_BYTE_COUNT) {
+        if ((is_bin && i == MAX_BIN_BYTE_COUNT) || (!is_bin && i == MAX_HEX_BYTE_COUNT)) {
             outputLine(offset, bytes);
             i = 0;
             memset(&bytes[0], 0, sizeof(bytes));
 
             if (offset == UINT_MAX - 0xF) offset = 0x0;
-            else offset += 0x10;
-        }
-
-        if (is_bin && i == MAX_BIN_BYTE_COUNT) {
-            outputLine(offset, bytes);
-            i = 0;
-            memset(&bytes[0], 0, sizeof(bytes));
-
-            if (offset == UINT_MAX - 0xF) offset = 0x0;
-            else offset += 0x6;
+            else offset += is_bin ? 0x6 : 0x10;
         }
     }
 
