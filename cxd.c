@@ -8,42 +8,47 @@
 
 #define MAX_HEX_BYTE_COUNT 16
 #define MAX_BIN_BYTE_COUNT 6
+#define DEFAULT_HEX_BYTES_PER_GROUP 2
+#define DEFAULT_BIN_BYTES_PER_GROUP 1
 #define HEX_LINE_LEN 67
 #define BIN_LINE_LEN 71
 
-long byte_limit     = -1;           // -l --len option flag
-bool is_bin         = false;        // -b --bin option flag 
+long    byte_limit              = -1;         // -l --len option flag
+bool    is_bin                  = false;      // -b --bin option flag 
+char    bytes_per_group         = -1;         // -g       option flag (-1 means default)
 
-void outputHexLine(unsigned int offset, char* bytes) {
-    printf("%08x: ", offset);
-    short i = 0;
-
-    while (bytes[i] != '\0') {
-        printf("%02x", bytes[i++]);
-        if (i % 2 == 0) printf(" ");
-    }
-    i++;
-    printf("%*s", HEX_LINE_LEN - 24 - (i << 1) - (i >> 1), ""); // add whitespace
-
-    i = 0;
-    while (bytes[i] != '\0') {
-        if (bytes[i] == '\n' || bytes[i] == '\t') printf(".");
-        else printf("%c", bytes[i]);
-        i++;
+void printByteGroup(char* bytes, short* i) {
+    int byte_limit = DEFAULT_HEX_BYTES_PER_GROUP;
+    if (bytes_per_group > 0) {
+        byte_limit = bytes_per_group;
     }
 
-    printf("\n");
+    int byte_count = 0;
+    while (bytes[*i] != '\0' && byte_count < byte_limit) {
+        byte_count++;
+
+        if (is_bin) for (short j = 7; j >= 0; j--) printf("%d", (bytes[*i] >> j) & 1);
+        else printf("%02x", bytes[*i]);
+
+        *i += 1;
+    }
 }
 
-void outputBinLine(unsigned int offset, char* bytes) {
+void outputLine(unsigned int offset, char* bytes) {
     printf("%08x: ", offset);
     short i = 0;
+
     while (bytes[i] != '\0') {
-        for (short j = 7; j >= 0; j--) printf("%d", (bytes[i] >> j) & 1);
+        printByteGroup(bytes, &i);
         printf(" ");
-        i++;
     }
-    printf("%*s", BIN_LINE_LEN - 16 - i - (i << 3), ""); // add whitespace
+    if (is_bin) {
+        printf("%*s", BIN_LINE_LEN - 16 - i - (i << 3), ""); // add whitespace
+    } else {
+        i++;
+        printf("%*s", HEX_LINE_LEN - 24 - (i << 1) - (i >> 1), ""); // add whitespace
+    }
+    
 
     i = 0;
     while (bytes[i] != '\0') {
@@ -51,6 +56,7 @@ void outputBinLine(unsigned int offset, char* bytes) {
         else printf("%c", bytes[i]);
         i++;
     }
+
     printf("\n");
 }
 
@@ -69,7 +75,7 @@ void hexDump(FILE *fp) {
         if (byte_limit > 0 && total_byte_count == byte_limit) break; // -l flag limit break
         
         if (!is_bin && i == MAX_HEX_BYTE_COUNT) {
-            outputHexLine(offset, bytes);
+            outputLine(offset, bytes);
             i = 0;
             memset(&bytes[0], 0, sizeof(bytes));
 
@@ -78,7 +84,7 @@ void hexDump(FILE *fp) {
         }
 
         if (is_bin && i == MAX_BIN_BYTE_COUNT) {
-            outputBinLine(offset, bytes);
+            outputLine(offset, bytes);
             i = 0;
             memset(&bytes[0], 0, sizeof(bytes));
 
@@ -87,25 +93,26 @@ void hexDump(FILE *fp) {
         }
     }
 
-    if (is_bin) outputBinLine(offset, bytes);
-    else outputHexLine(offset, bytes);
+    outputLine(offset, bytes);
 }
 
 int main(int argc, char *argv[]) {
     int opt;
     static struct option long_options[] = {
-        {"len",     required_argument,  NULL,   'l'},
-        {"bin",     no_argument,        NULL,   'b'},
+        {"len",         required_argument,  NULL,   'l'},
+        {"bin",         no_argument,        NULL,   'b'},
+        {"groupsize",   required_argument,  NULL,   'g'},
         {0, 0, 0, 0}
     };
 
     int opt_index = 0;
-    while ((opt = getopt_long(argc, argv, "l:b", long_options, &opt_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "l:bg:", long_options, &opt_index)) != -1) {
+        
         switch (opt) {
+            errno = 0;
+            char *endptr;
 
             case 'l':
-                errno = 0;
-                char *endptr;
                 byte_limit = strtol(optarg, &endptr, 0);
 
                 if (errno == ERANGE) {
@@ -121,6 +128,26 @@ int main(int argc, char *argv[]) {
             
             case 'b':
                 is_bin = true;
+                break;
+
+            case 'g':
+                bytes_per_group = strtol(optarg, &endptr, 0);
+                
+                if (bytes_per_group < CHAR_MIN || bytes_per_group > CHAR_MAX) {
+                    errno = ERANGE;
+                }
+
+                if (errno == ERANGE) {
+                    fprintf(stderr, "cxd: len value out of range\n");
+                    return 1;
+                }
+                if (*endptr != '\0') {
+                    fprintf(stderr, "cxd: invalid len value: %s\n", optarg);
+                    return 1;
+                }
+
+                bytes_per_group = (char)bytes_per_group;
+
                 break;
 
             default:
